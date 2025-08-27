@@ -2,4 +2,4 @@
 
 -----------------
 #Auth 
-1- Login register with fast-jwt by (gasy tsy tadidiko ny anarany ) 
+1- Login register with fast-jwt-auth by (gasy tsy tadidiko ny anarany ) 
