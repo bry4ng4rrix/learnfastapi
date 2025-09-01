@@ -222,3 +222,47 @@ DELETE pour supprimer un item.
 6. Conclusion
 Le fichier main.py implémente un CRUD complet pour l'entité Item, avec des endpoints RESTful conformes aux standards. L'intégration de FastAPI, SQLAlchemy, et Pydantic garantit une API robuste, avec validation des données, gestion des erreurs, et compatibilité avec une base de données SQLite. Pour des fonctionnalités avancées, envisagez d'ajouter des filtres (ex. : recherche par nom) ou des migrations avec Alembic pour gérer les changements de schéma.
 Pour plus de détails, consultez la documentation de FastAPI.
+
+
+
+exemple : 
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List
+from schema import Item, ItemCreate
+from database import Item as DBItem, get_db
+
+app = FastAPI()
+
+@app.post("/items/", response_model=Item)
+def create_item(item: ItemCreate, db: Session = Depends(get_db)):
+    db_item = DBItem(**item.dict())
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@app.get("/items/", response_model=List[Item])
+def read_items(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    items = db.query(DBItem).offset(skip).limit(limit).all()
+    return items
+
+@app.put("/items/{item_id}", response_model=Item)
+def update_item(item_id: int, item: ItemCreate, db: Session = Depends(get_db)):
+    db_item = db.query(DBItem).filter(DBItem.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    for key, value in item.dict().items():
+        setattr(db_item, key, value)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@app.delete("/items/{item_id}", response_model=Item)
+def delete_item(item_id: int, db: Session = Depends(get_db)):
+    db_item = db.query(DBItem).filter(DBItem.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    db.delete(db_item)
+    db.commit()
+    return db_item
