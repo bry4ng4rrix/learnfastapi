@@ -13,6 +13,13 @@ class Item(Base):
     name = Column(String, index=True)
     description = Column(String, nullable=True)
 
+class Tache(Base): 
+    __tablename__ ="taches"
+    id = Column(Integer, primary_key=True, index=True)
+    noms = Column(String, index=True)
+    description = Column(String, nullable=True)
+    
+
 Base.metadata.create_all(bind=engine)
 
 def get_db():
