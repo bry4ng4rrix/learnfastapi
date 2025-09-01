@@ -1,18 +1,20 @@
-from fastapi import FastAPI
-import database
-from routers import auth,user,produit 
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List
+from schema import Item, ItemCreate
+from database import Item as DBItem, get_db
 
+app = FastAPI()
 
-database.Base.metadata.create_all(database.engine)
+@app.post("/items/", response_model=Item)
+def create_item(item: ItemCreate, db: Session = Depends(get_db)):
+    db_item = DBItem(**item.dict())
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
 
-app = FastAPI(title = "Learning FastAPI",
-              version="1.0.0")
-
-app.include_router(auth.router ,prefix="/auth",tags=["Authentication"])
-app.include_router(user.router, prefix="/user",tags=["User"])
-app.include_router(produit.router, prefix="/produit",tags=["Produit"])
-
-
-@app.get("/")
-def root():
-    return {"message": "Welcome to FastAPI"}
+@app.get("/items/", response_model=List[Item])
+def read_items(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    items = db.query(DBItem).offset(skip).limit(limit).all()
+    return items
