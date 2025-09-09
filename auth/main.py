@@ -1,20 +1,86 @@
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List
-from schema import Item, ItemCreate
-from database import Item as DBItem, get_db
+# main.py - Application FastAPI principale
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
-app = FastAPI()
+# Imports des modules locaux
+from database import init_db
+from routers.auth import auth_router
 
-@app.post("/items/", response_model=Item)
-def create_item(item: ItemCreate, db: Session = Depends(get_db)):
-    db_item = DBItem(**item.dict())
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+# ==================== APPLICATION ====================
+app = FastAPI(
+    title="OAuth2 Authentication API",
+    description="API d'authentification OAuth2 avec FastAPI, SQLite et architecture modulaire",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
-@app.get("/items/", response_model=List[Item])
-def read_items(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
-    items = db.query(DBItem).offset(skip).limit(limit).all()
-    return items
+# ==================== MIDDLEWARE ====================
+# Configuration CORS pour permettre les requêtes depuis le frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Ajustez selon vos besoins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ==================== INCLUSION DES ROUTERS ====================
+# Inclusion du router d'authentification
+app.include_router(auth_router)
+
+# ==================== ROUTES PRINCIPALES ====================
+@app.get("/")
+async def root():
+    """Route d'accueil publique"""
+    return {
+        "message": "Welcome to OAuth2 Authentication API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "redoc": "/redoc",
+        "endpoints": {
+            "auth": "/auth",
+            "health": "/health"
+        }
+    }
+
+@app.get("/health")
+async def health_check():
+    """Endpoint de vérification de santé de l'API"""
+    return {
+        "status": "healthy",
+        "service": "OAuth2 Authentication API",
+        "version": "1.0.0"
+    }
+
+# ==================== ÉVÉNEMENTS DE L'APPLICATION ====================
+@app.on_event("startup")
+async def startup_event():
+    """Événement exécuté au démarrage de l'application"""
+    # Initialisation de la base de données
+    init_db()
+    print("🚀 Application démarrée")
+    print("📚 Documentation Swagger: http://localhost:8000/docs")
+    print("📖 Documentation ReDoc: http://localhost:8000/redoc")
+    print("🔐 Endpoints d'authentification:")
+    print("   - POST /auth/register : Inscription")
+    print("   - POST /auth/token : Login OAuth2")
+    print("   - POST /auth/login : Login simple")
+    print("   - GET /auth/me : Profil utilisateur")
+    print("   - GET /auth/protected : Route protégée")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Événement exécuté à l'arrêt de l'application"""
+    print("🛑 Application arrêtée")
+
+# ==================== LANCEMENT ====================
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,  # Rechargement automatique en développement
+        log_level="info"
+    )

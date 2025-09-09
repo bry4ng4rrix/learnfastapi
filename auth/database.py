@@ -1,30 +1,109 @@
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+# database.py - Gestion de la base de données SQLite
+import sqlite3
+from contextlib import contextmanager
+from typing import Optional, Dict, Any
+from passlib.context import CryptContext
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./items.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# Configuration
+DATABASE_NAME = "auth.db"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-class Item(Base):
-    __tablename__ = "items"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    description = Column(String, nullable=True)
+def init_db():
+    """Initialise la base de données et crée les tables"""
+    conn = sqlite3.connect(DATABASE_NAME)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            username TEXT UNIQUE NOT NULL,
+            hashed_password TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+    print("✅ Base de données initialisée")
 
-class Tache(Base): 
-    __tablename__ ="taches"
-    id = Column(Integer, primary_key=True, index=True)
-    noms = Column(String, index=True)
-    description = Column(String, nullable=True)
-    
-
-Base.metadata.create_all(bind=engine)
-
+@contextmanager
 def get_db():
-    db = SessionLocal()
+    """Context manager pour la connexion à la base de données"""
+    conn = sqlite3.connect(DATABASE_NAME)
+    conn.row_factory = sqlite3.Row  # Pour accéder aux colonnes par nom
     try:
-        yield db
+        yield conn
     finally:
-        db.close()
+        conn.close()
+
+class UserRepository:
+    """Repository pour les opérations CRUD sur les utilisateurs"""
+    
+    @staticmethod
+    def get_by_username(username: str) -> Optional[Dict[str, Any]]:
+        """Récupère un utilisateur par username"""
+        with get_db() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE username = ?", (username,)
+            )
+            user_data = cursor.fetchone()
+            return dict(user_data) if user_data else None
+    
+    @staticmethod
+    def get_by_email(email: str) -> Optional[Dict[str, Any]]:
+        """Récupère un utilisateur par email"""
+        with get_db() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE email = ?", (email,)
+            )
+            user_data = cursor.fetchone()
+            return dict(user_data) if user_data else None
+    
+    @staticmethod
+    def get_by_id(user_id: int) -> Optional[Dict[str, Any]]:
+        """Récupère un utilisateur par ID"""
+        with get_db() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE id = ?", (user_id,)
+            )
+            user_data = cursor.fetchone()
+            return dict(user_data) if user_data else None
+    
+    @staticmethod
+    def create_user(email: str, username: str, password: str) -> int:
+        """Crée un nouvel utilisateur et retourne son ID"""
+        hashed_password = pwd_context.hash(password)
+        
+        with get_db() as conn:
+            cursor = conn.execute(
+                """INSERT INTO users (email, username, hashed_password) 
+                   VALUES (?, ?, ?)""",
+                (email, username, hashed_password)
+            )
+            conn.commit()
+            return cursor.lastrowid
+    
+    @staticmethod
+    def update_user_activity(user_id: int, is_active: bool) -> bool:
+        """Met à jour le statut d'activité d'un utilisateur"""
+        with get_db() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET is_active = ? WHERE id = ?",
+                (is_active, user_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Vérifie si le mot de passe est correct"""
+        return pwd_context.verify(plain_password, hashed_password)
+    
+    @staticmethod
+    def username_exists(username: str) -> bool:
+        """Vérifie si un username existe déjà"""
+        return UserRepository.get_by_username(username) is not None
+    
+    @staticmethod
+    def email_exists(email: str) -> bool:
+        """Vérifie si un email existe déjà"""
+        return UserRepository.get_by_email(email) is not None
