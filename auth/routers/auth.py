@@ -273,6 +273,7 @@ async def verify_user_token(current_user: User = Depends(get_current_user)):
     return {
         "valid": True,
         "user_id": current_user.id,
+        "email": current_user.email,
         "username": current_user.username,
         "is_active": current_user.is_active
     }

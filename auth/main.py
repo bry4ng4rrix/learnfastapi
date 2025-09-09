@@ -9,7 +9,7 @@ from routers.auth import auth_router
 
 # ==================== APPLICATION ====================
 app = FastAPI(
-    title="OAuth2 Authentication API",
+    title="Learn fastapi",
     description="API d'authentification OAuth2 avec FastAPI, SQLite et architecture modulaire",
     version="1.0.0",
     docs_url="/docs",
@@ -57,18 +57,9 @@ async def health_check():
 # ==================== ÉVÉNEMENTS DE L'APPLICATION ====================
 @app.on_event("startup")
 async def startup_event():
-    """Événement exécuté au démarrage de l'application"""
     # Initialisation de la base de données
     init_db()
-    print("🚀 Application démarrée")
-    print("📚 Documentation Swagger: http://localhost:8000/docs")
-    print("📖 Documentation ReDoc: http://localhost:8000/redoc")
-    print("🔐 Endpoints d'authentification:")
-    print("   - POST /auth/register : Inscription")
-    print("   - POST /auth/token : Login OAuth2")
-    print("   - POST /auth/login : Login simple")
-    print("   - GET /auth/me : Profil utilisateur")
-    print("   - GET /auth/protected : Route protégée")
+   
 
 @app.on_event("shutdown")
 async def shutdown_event():
